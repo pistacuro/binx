@@ -45,7 +45,7 @@ def get_length_prefixed_string_bytes(string):
 def write_strings_to_csv():
     timestamp = int(time.time())
     csv_filename = 'strings-{timestamp}.csv'.format(timestamp=timestamp)
-    with open(csv_filename, 'w', newline="") as f:
+    with open(csv_filename, 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
         for string in boses:
@@ -61,16 +61,16 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
     with open(binary_file_path, "rb") as fd_bin:
         binary_file_content = fd_bin.read()
 
-    with open(csv_file_path, newline="") as fd_csv:
+    with open(csv_file_path, newline="", encoding="utf-8") as fd_csv:
         csv_file = csv.reader(fd_csv)
         for row in csv_file:
             if len(row[1]):
                 org_str = row[0]
-                trn_str = row[1]
+                trn_str = row[1].strip()
                 lps_trn_bytes = get_length_prefixed_string_bytes(trn_str)
                 bos_to_replace = []
                 for bos in boses:
-                    if bos.value.value == org_str:
+                    if bos.value.value.strip() == org_str.strip():
                         bos_to_replace.append(bos)
 
                 for bos in bos_to_replace:
@@ -90,7 +90,7 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
 
 def diff_csv_and_bin(old_csv_file_path):
     logging.info("Diffing...")
-    with open(old_csv_file_path, newline="") as fd_csv:
+    with open(old_csv_file_path, newline="", encoding="utf-8") as fd_csv:
         old_csv_content = csv.reader(fd_csv)
 
         diff = {
@@ -105,32 +105,22 @@ def diff_csv_and_bin(old_csv_file_path):
         }
 
         # get only string value from a binary object string
-        strings = [string.value.value for string in boses if re.search("[\uac00-\ud7a3]",
+        strings = [string.value.value.strip() for string in boses if re.search("[\uac00-\ud7a3]",
                                                                        string.value.value)]
         # this will gather all the strings which where already found
-        strings_found = []
         for orow in old_csv_content:
             found = False
-            if orow[0] in strings_found:
-                continue
-            else:
-                for i, string in enumerate(strings):
-                    if orow[0].strip() == string.strip():
-                        found = True
-                        strings_found.append(string)
-                        del(strings[i])
-                        break
+            for i, string in enumerate(strings):
+                if orow[0].strip() == string:
+                    found = True
+                    del(strings[i])
+                    break
             
             if not found:
                 if orow[1]:
                     diff["trans_changed"].append(orow)
                 else:
                     diff["removed"].append(orow[0])
-        # we are looking through the remaining strings if they where already found to eliminate 
-        # duplicities
-        for i, string in enumerate(strings):
-            if string in strings_found:
-                del(strings[i])
 
         diff["new"] = strings
         diff["meta"]["new"] = len(diff["new"])
@@ -142,20 +132,20 @@ def diff_csv_and_bin(old_csv_file_path):
     os.mkdir(diff_dir)
 
     # TODO refactor this as it is lazy coding AF. Put in a diff function
-    with open(diff_dir + "new.csv", 'w', newline="") as f:
+    with open(diff_dir + "new.csv", 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
         for string in diff["new"]:
                 row = [string, ""]
                 writer.writerow(row)
 
-    with open(diff_dir + "trans_changed.csv", 'w', newline="") as f:
+    with open(diff_dir + "trans_changed.csv", 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
         for string in diff["trans_changed"]:
                 writer.writerow(string)
 
-    with open(diff_dir + "removed.csv", 'w', newline="") as f:
+    with open(diff_dir + "removed.csv", 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
         for string in diff["removed"]:

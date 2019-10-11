@@ -2,6 +2,7 @@ import os
 import re
 import csv
 import time
+import ntpath
 import logging
 
 boses = []
@@ -48,9 +49,8 @@ def write_strings_to_csv():
     with open(csv_filename, 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
-        for string in boses:
-            if re.search("[\uac00-\ud7a3]", string.value.value): 
-                row = [string.value.value, ""]
+        for string in set(get_korean_strings()):
+                row = [string, ""]
                 writer.writerow(row)
 
     print(csv_filename)
@@ -90,9 +90,10 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
 
 def diff_csv_and_bin(old_csv_file_path):
     logging.info("Diffing...")
+    # get the filename from the path. Using ntpath so its compatible with windows
+    filename = ntpath.basename(old_csv_file_path).split(".")[0]
     with open(old_csv_file_path, newline="", encoding="utf-8") as fd_csv:
-        old_csv_content = csv.reader(fd_csv)
-
+        old_csv_content = list(csv.reader(fd_csv))
         diff = {
             "meta": {
                 "new": 0,
@@ -104,52 +105,81 @@ def diff_csv_and_bin(old_csv_file_path):
             "trans_changed": [],
         }
 
+        old_strings = get_strings_from_csv(old_csv_content)
         # get only string value from a binary object string
-        strings = [string.value.value.strip() for string in boses if re.search("[\uac00-\ud7a3]",
-                                                                       string.value.value)]
-        # this will gather all the strings which where already found
-        for orow in old_csv_content:
-            found = False
-            for i, string in enumerate(strings):
-                if orow[0].strip() == string:
-                    found = True
-                    del(strings[i])
-                    break
-            
-            if not found:
-                if orow[1]:
-                    diff["trans_changed"].append(orow)
-                else:
-                    diff["removed"].append(orow[0])
+        strings = get_korean_strings()
+        new = list(set(strings) - set(old_strings))
+        removed = list(set(old_strings) - set(strings))
+        unchanged = list(set(strings) & set(old_strings))
 
-        diff["new"] = strings
+        for row in old_csv_content:
+            if row[1] and row[0].strip() in removed:
+                row.append("The original string {org_str} has been changed/removed."
+                           " Please update/remove your translation!")
+                diff["trans_changed"].append(row)
+
+        diff["new"] = new
+        diff["removed"] = removed
         diff["meta"]["new"] = len(diff["new"])
         diff["meta"]["removed"] = len(diff["removed"])
         diff["meta"]["trans_changed"] = len(diff["trans_changed"])
     
-    timestamp = int(time.time())
-    diff_dir = 'diff_{timestamp}/'.format(timestamp=timestamp)
-    os.mkdir(diff_dir)
+    if diff["meta"]["new"] or diff["meta"]["trans_changed"] or diff["meta"]["removed"]:
+        timestamp = int(time.time())
+        diff_dir = 'diff_{timestamp}/'.format(timestamp=timestamp)
+        logging.info("Creating {dir}...".format(dir=diff_dir))
+        os.mkdir(diff_dir)
 
-    # TODO refactor this as it is lazy coding AF. Put in a diff function
-    with open(diff_dir + "new.csv", 'w', newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        updated_csv = []
+        strings_found = []
 
-        for string in diff["new"]:
-                row = [string, ""]
-                writer.writerow(row)
+        if diff["meta"]["new"]:
+            for string in new:
+                updated_csv.append([string, ""])
+            write_csv_file(diff_dir + "new.csv", diff["new"])
 
-    with open(diff_dir + "trans_changed.csv", 'w', newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        if diff["meta"]["trans_changed"]:
+            write_csv_file(diff_dir + "trans_changed.csv", diff["trans_changed"])
 
-        for string in diff["trans_changed"]:
-                writer.writerow(string)
+        if diff["meta"]["removed"]:
+            write_csv_file(diff_dir + "removed.csv", diff["removed"])
 
-    with open(diff_dir + "removed.csv", 'w', newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+        for row in old_csv_content:
+            org_str = row[0].strip()
+            if org_str in unchanged and org_str not in strings_found:
+                    strings_found.append(org_str)
+                    updated_csv.append(row)
 
-        for string in diff["removed"]:
-                row = [string, ""]
-                writer.writerow(row)
+        updated_csv.extend(diff["trans_changed"])
+
+        write_csv_file(diff_dir + "{filename}_updated.csv".format(filename=filename),
+                    updated_csv)
+    else:
+        logging.info("No changes found.")
 
     return diff["meta"]
+
+
+def write_csv_file(path, data):
+    with open(path, 'w', newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+
+        for d in data:
+            if isinstance(d, list):
+                row = d
+            elif isinstance(d, str):
+                row = [d, ""]
+            else:
+                raise ValueError("You want to write invalid data '{data}' to a csv file!".format(
+                    data=d))
+
+            writer.writerow(row)
+    logging.info("File {path} written...".format(path=path))
+
+
+def get_korean_strings():
+    return [string.value.value.strip() for string in boses if re.search("[\uac00-\ud7a3]",
+                                                                        string.value.value)]
+
+def get_strings_from_csv(csv_strings):
+    return [s[0].strip() for s in csv_strings]

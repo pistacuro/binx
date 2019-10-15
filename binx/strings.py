@@ -49,7 +49,7 @@ def write_strings_to_csv():
     with open(csv_filename, 'w', newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
-        for string in set(get_korean_strings()):
+        for string in dict.fromkeys(get_korean_strings()):
                 row = [string, ""]
                 writer.writerow(row)
 
@@ -118,7 +118,7 @@ def diff_csv_and_bin(old_csv_file_path):
                            " Please update/remove your translation!")
                 diff["trans_changed"].append(row)
 
-        diff["new"] = new
+        diff["new"] = sorted(new, key=strings.index)
         diff["removed"] = removed
         diff["meta"]["new"] = len(diff["new"])
         diff["meta"]["removed"] = len(diff["removed"])
@@ -134,8 +134,9 @@ def diff_csv_and_bin(old_csv_file_path):
         strings_found = []
 
         if diff["meta"]["new"]:
-            for string in new:
-                updated_csv.append([string, ""])
+            for string in strings:
+                if string in new:
+                    updated_csv.append([string, ""])
             write_csv_file(diff_dir + "new.csv", diff["new"])
 
         if diff["meta"]["trans_changed"]:
@@ -150,6 +151,7 @@ def diff_csv_and_bin(old_csv_file_path):
                     strings_found.append(org_str)
                     updated_csv.append(row)
 
+        updated_csv = sorted(updated_csv, key=lambda string: strings.index(string[0]))
         updated_csv.extend(diff["trans_changed"])
 
         write_csv_file(diff_dir + "{filename}_updated.csv".format(filename=filename),

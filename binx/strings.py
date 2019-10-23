@@ -4,6 +4,7 @@ import csv
 import time
 import ntpath
 import logging
+import urllib.request
 
 boses = []
 
@@ -86,6 +87,19 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
         fd_out.write(binary_file_content)
 
     print(new_bin_filename)
+
+def translate_binary_file_with_url(binary_file_path, csv_url):
+    # get the content from the provided URL from args
+    # returns a string of Chars so we decode them to UTF8
+    csv_data = urllib.request.urlopen(csv_url).read().decode('utf-8')
+    # next we write the chars to a temp file so pass it to translate_binary_file_with_csv
+    with open('translated_strings.tmp', 'w', newline="", encoding="utf-8") as f:
+        for string in csv_data:
+            f.write(string)
+    # pass the file to the translate_binary_file_with_csv function as the translation source
+    translate_binary_file_with_csv(binary_file_path, 'translated_strings.tmp')
+    # delete the temporary file used for the translation content
+    os.remove('translated_strings.tmp')
 
 
 def diff_csv_and_bin(old_csv_file_path):

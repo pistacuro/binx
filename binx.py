@@ -9,6 +9,8 @@ if __name__ == "__main__":
                         help='dump the strings from provided c# file into a *.csv')
     parser.add_argument('-t', '--translate', dest="trans_csv_file_path",
                         help='translated *.csv file path')
+    parser.add_argument('-gt', '--gtranslate', dest="trans_csv_url",
+                        help='URL to Google Sheets csv IN QUOTES')
     parser.add_argument('-x', '--diff', dest="diff_csv_file_path",
                         help=('*.csv file path, againts whom we are diffing the '
                               'strings from the binary file'))

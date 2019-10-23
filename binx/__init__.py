@@ -6,7 +6,7 @@ import logging
 from binx.enum import record_type_enum
 from binx.types import SerializedStreamHeader
 from binx.utils import peek_one_byte_to_int
-from binx.strings import write_strings_to_csv, translate_binary_file_with_csv, diff_csv_and_bin
+from binx.strings import write_strings_to_csv, translate_binary_file_with_csv, translate_binary_file_with_url, diff_csv_and_bin
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -119,4 +119,9 @@ def main(args):
     if args.trans_csv_file_path:
         translate_binary_file_with_csv(args.bin_file_path,
                                        args.trans_csv_file_path)
+        return
+
+    if args.trans_csv_url:
+        translate_binary_file_with_url(args.bin_file_path,
+                                       args.trans_csv_url)
         return

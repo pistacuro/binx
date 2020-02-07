@@ -367,6 +367,12 @@ class BinaryArray(GenericType):
                     on.read_data_from_stream(fd)
                     self.array_data.append(on)
 
+                if rte == 13:
+                    onm = ObjectNullMultiple256()
+                    onm.read_data_from_stream(fd)
+                    for _ in range(onm.null_count):
+                        self.array_data.append(None)
+
                 if rte == 1:
                     cid = ClassWithId()
                     cid.read_data_from_stream(fd)
